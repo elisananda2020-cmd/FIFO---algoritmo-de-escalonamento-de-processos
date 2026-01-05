@@ -1,12 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
 typedef struct {
     int id;
     int tempoChegada;
     int duracao;
-    int prioridade;
     int inicio;
     int termino;
     int turnaround;
@@ -64,8 +62,8 @@ void executarFIFO(GerenciadorFila *f) {
     int contadorProcessos = 0;
     float acumulaEspera = 0, acumulaTurnaround = 0, acumulaResposta = 0;
 
-    printf("\n--- RESULTADOS DO ESCALONAMENTO FIFO ---\n");
-    printf("ID | Chegada | Duracao | Inicio | Termino | Espera | TAT\n");
+    printf("\n---/ RESULTADOS DO ESCALONAMENTO FIFO \\---\n");
+    printf("ID | Chegada | Duracao | Inicio | Termino | Espera | Resp | TAT\n");
 
     while (!estaVazia(f)) {
         Processo p = removerProcesso(f);
@@ -80,21 +78,23 @@ void executarFIFO(GerenciadorFila *f) {
         p.response = p.inicio - p.tempoChegada;
 
         cronometro = p.termino;
+
         acumulaEspera += p.waiting;
         acumulaTurnaround += p.turnaround;
         acumulaResposta += p.response;
         contadorProcessos++;
 
-        printf("%2d | %7d | %7d | %6d | %7d | %6d | %3d\n",
+        printf("%2d | %7d | %7d | %6d | %7d | %6d | %4d | %3d\n",
                p.id, p.tempoChegada, p.duracao, p.inicio,
-               p.termino, p.waiting, p.turnaround);
+               p.termino, p.waiting, p.response, p.turnaround);
     }
 
     if (contadorProcessos > 0) {
-        printf("\n--- METRICAS FINAIS ---\n");
-        printf("Tempo medio de Espera (Wait):  %.2f\n", acumulaEspera / contadorProcessos);
-        printf("Tempo medio de Retorno (TAT):  %.2f\n", acumulaTurnaround / contadorProcessos);
-        printf("vazao (Throughput):            %.2f proc/un\n", (float)contadorProcessos / cronometro);
+        printf("\n---/ METRICAS FINAIS \\---\n");
+        printf("Tempo medio de Espera (Wait): %.2f\n", acumulaEspera / contadorProcessos);
+        printf("Tempo medio de Retorno (TAT): %.2f\n", acumulaTurnaround / contadorProcessos);
+        printf("Tempo medio de Resposta: %.2f\n", acumulaResposta / contadorProcessos);
+        printf("vazao (Throughput): %.2f proc/un\n", (float)contadorProcessos / cronometro);
     }
 }
 
@@ -112,9 +112,9 @@ int main() {
         p.id = i + 1;
 
         printf("\nDados do Processo %d:\n", p.id);
-        printf("  -> Tempo de Chegada: ");
+        printf("  > Tempo de Chegada: ");
         scanf("%d", &p.tempoChegada);
-        printf("  -> Duracao (Burst): ");
+        printf("  > Duracao (Burst): ");
         scanf("%d", &p.duracao);
 
         adicionarProcesso(&fila, p);
