@@ -1,5 +1,6 @@
 #include <stdio.h>
-#include <stdlib.h> 
+#include <stdlib.h>
+
 
 typedef struct {
     int id;
@@ -13,65 +14,113 @@ typedef struct {
     int response;
 } Processo;
 
-int compararChegada(const void *a, const void *b) {
-    Processo *p1 = (Processo *)a;
-    Processo *p2 = (Processo *)b;
-    return p1->tempoChegada - p2->tempoChegada;
+typedef struct Elemento {
+    Processo dado;
+    struct Elemento *proximo;
+} Elemento;
+
+typedef struct {
+    Elemento *primeiro;
+    Elemento *ultimo;
+} GerenciadorFila;
+
+void prepararFila(GerenciadorFila *f) {
+    f->primeiro = NULL;
+    f->ultimo = NULL;
 }
 
-void fifo(Processo p[], int n) {
-    qsort(p, n, sizeof(Processo), compararChegada);
+int estaVazia(GerenciadorFila *f) {
+    return f->primeiro == NULL;
+}
 
-    int tempoAtual = 0;
-    float somaWT = 0, somaTAT = 0, somaRT = 0;
+void adicionarProcesso(GerenciadorFila *f, Processo p) {
+    Elemento *novoItem = (Elemento *)malloc(sizeof(Elemento));
+    novoItem->dado = p;
+    novoItem->proximo = NULL;
 
-    for (int i = 0; i < n; i++) {
-        if (tempoAtual < p[i].tempoChegada)
-            tempoAtual = p[i].tempoChegada;
+    if (f->ultimo == NULL) {
+        f->primeiro = novoItem;
+        f->ultimo = novoItem;
+    } else {
+        f->ultimo->proximo = novoItem;
+        f->ultimo = novoItem;
+    }
+}
 
-        p[i].inicio = tempoAtual;
-        p[i].termino = tempoAtual + p[i].duracao;
-        p[i].turnaround = p[i].termino - p[i].tempoChegada;
-        p[i].waiting = p[i].turnaround - p[i].duracao;
-        p[i].response = p[i].inicio - p[i].tempoChegada;
+Processo removerProcesso(GerenciadorFila *f) {
+    Elemento *alvo = f->primeiro;
+    Processo p = alvo->dado;
 
-        tempoAtual = p[i].termino;
+    f->primeiro = alvo->proximo;
+    if (f->primeiro == NULL)
+        f->ultimo = NULL;
 
-        somaWT += p[i].waiting;
-        somaTAT += p[i].turnaround;
-        somaRT += p[i].response;
+    free(alvo);
+    return p;
+}
+
+void executarFIFO(GerenciadorFila *f) {
+    int cronometro = 0;
+    int contadorProcessos = 0;
+    float acumulaEspera = 0, acumulaTurnaround = 0, acumulaResposta = 0;
+
+    printf("\n--- RESULTADOS DO ESCALONAMENTO FIFO ---\n");
+    printf("ID | Chegada | Duracao | Inicio | Termino | Espera | TAT\n");
+
+    while (!estaVazia(f)) {
+        Processo p = removerProcesso(f);
+
+        if (cronometro < p.tempoChegada)
+            cronometro = p.tempoChegada;
+
+        p.inicio = cronometro;
+        p.termino = cronometro + p.duracao;
+        p.turnaround = p.termino - p.tempoChegada;
+        p.waiting = p.turnaround - p.duracao;
+        p.response = p.inicio - p.tempoChegada;
+
+        cronometro = p.termino;
+        acumulaEspera += p.waiting;
+        acumulaTurnaround += p.turnaround;
+        acumulaResposta += p.response;
+        contadorProcessos++;
+
+        printf("%2d | %7d | %7d | %6d | %7d | %6d | %3d\n",
+               p.id, p.tempoChegada, p.duracao, p.inicio,
+               p.termino, p.waiting, p.turnaround);
     }
 
-    printf("\nTabela de Processos (FIFO)\n");
-    printf("ID | Chegada | Duracao | Inicio | Termino | WT | TAT | RT\n");
-    for (int i = 0; i < n; i++) {
-        printf("%2d | %7d | %7d | %6d | %7d | %2d | %3d | %2d\n",
-               p[i].id, p[i].tempoChegada, p[i].duracao, p[i].inicio,
-               p[i].termino, p[i].waiting, p[i].turnaround, p[i].response);
+    if (contadorProcessos > 0) {
+        printf("\n--- METRICAS FINAIS ---\n");
+        printf("Tempo medio de Espera (Wait):  %.2f\n", acumulaEspera / contadorProcessos);
+        printf("Tempo medio de Retorno (TAT):  %.2f\n", acumulaTurnaround / contadorProcessos);
+        printf("vazao (Throughput):            %.2f proc/un\n", (float)contadorProcessos / cronometro);
     }
-
-    printf("\nMetricas do FIFO:\n");
-    printf("Media Waiting Time: %.2f\n", somaWT / n);
-    printf("Media Turnaround Time: %.2f\n", somaTAT / n);
-    printf("Media Response Time: %.2f\n", somaRT / n);
-    printf("Throughput: %.2f\n", (float)n / tempoAtual);
 }
 
 int main() {
-    int n;
-    printf("Quantidade de processos: ");
-    if (scanf("%d", &n) != 1 || n <= 0) return 1;
+    int total;
+    GerenciadorFila fila;
 
-    Processo p[n];
-    for (int i = 0; i < n; i++) {
-        p[i].id = i + 1;
-        printf("\nProcesso %d\n", p[i].id);
-        printf("Tempo de chegada: ");
-        scanf("%d", &p[i].tempoChegada);
-        printf("Duracao: ");
-        scanf("%d", &p[i].duracao);
+    prepararFila(&fila);
+
+    printf("Quantos processos deseja simular? ");
+    if (scanf("%d", &total) != 1 || total <= 0) return 0;
+
+    for (int i = 0; i < total; i++) {
+        Processo p;
+        p.id = i + 1;
+
+        printf("\nDados do Processo %d:\n", p.id);
+        printf("  -> Tempo de Chegada: ");
+        scanf("%d", &p.tempoChegada);
+        printf("  -> Duracao (Burst): ");
+        scanf("%d", &p.duracao);
+
+        adicionarProcesso(&fila, p);
     }
 
-    fifo(p, n);
+    executarFIFO(&fila);
+
     return 0;
 }
